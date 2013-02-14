@@ -1,12 +1,12 @@
 <!DOCTYPE html>  <html> <head>   <title>genie.coffee</title>   <meta http-equiv="content-type" content="text/html; charset=UTF-8">   <link rel="stylesheet" media="all" href="docco.css" /> </head> <body>   <div id="container">     <div id="background"></div>          <table cellpadding="0" cellspacing="0">       <thead>         <tr>           <th class="docs">             <h1>               genie.coffee             </h1>           </th>           <th class="code">           </th>         </tr>       </thead>       <tbody>                               <tr id="section-1">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-1">&#182;</a>               </div>                            </td>             <td class="code">               <div class="highlight"><pre><span class="k">class</span> <span class="nx">Chromosome</span>
   <span class="nv">constructor: </span><span class="nf">(@genes) -&gt;</span>
-    
+
   <span class="vi">@Random = </span><span class="nf">(numberOfGenes) -&gt;</span>
     <span class="nv">genes = </span><span class="p">[]</span>
     <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">numberOfGenes</span><span class="p">]</span>
       <span class="nx">genes</span><span class="p">[</span><span class="nx">n</span><span class="p">]</span> <span class="o">=</span> <span class="nb">Math</span><span class="p">.</span><span class="nx">random</span><span class="p">()</span> <span class="o">*</span> <span class="nb">Math</span><span class="p">.</span><span class="nx">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span> <span class="o">-</span> <span class="nb">Math</span><span class="p">.</span><span class="nx">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">31</span><span class="p">)</span>
     <span class="k">new</span> <span class="nx">Chromosome</span><span class="p">(</span><span class="nx">genes</span><span class="p">)</span>
-      
+
   <span class="vi">@Breed = </span><span class="nf">(parentOne, parentTwo, mutationRate) -&gt;</span>
     <span class="nv">genes = </span><span class="p">[]</span>
     <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">parentOne</span><span class="p">.</span><span class="nx">genes</span><span class="p">.</span><span class="nx">length</span><span class="p">]</span>
@@ -17,69 +17,171 @@
       <span class="nx">genes</span><span class="p">[</span><span class="nx">n</span><span class="p">]</span> <span class="o">=</span> <span class="nx">gene</span>
     <span class="k">new</span> <span class="nx">Chromosome</span><span class="p">(</span><span class="nx">genes</span><span class="p">)</span>
 
-<span class="k">class</span> <span class="nx">Genie</span>
-  <span class="nv">constructor: </span><span class="nf">(@_ = {}) -&gt;</span>
-    <span class="nx">check</span> <span class="nx">@_</span>
-    <span class="vi">@_.population = </span><span class="p">(</span><span class="nx">Chromosome</span><span class="p">.</span><span class="nx">Random</span><span class="p">(</span><span class="nx">@_</span><span class="p">.</span><span class="nx">numberOfGenes</span><span class="p">)</span> <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">@_</span><span class="p">.</span><span class="nx">populationSize</span><span class="p">])</span>
+<span class="nv">Genie = </span><span class="nx">do</span> <span class="nf">(Genie = {}) -&gt;</span>
+  <span class="nv">_options = </span><span class="p">{}</span>
+  <span class="nv">_workers = </span><span class="kc">null</span>
+  
+  <span class="nv">_init = </span><span class="nf">(options) -&gt;</span>
+    <span class="nv">_options = </span><span class="p">{}</span>
     
-  <span class="nv">check = </span><span class="nf">(options) -&gt;</span>
-    <span class="nx">options</span><span class="p">.</span><span class="nx">populationSize</span> <span class="o">?=</span> <span class="mi">32</span>
+    <span class="nv">defaultOptions = </span>
+      <span class="nv">populationSize: </span><span class="mi">32</span>
+      <span class="nv">mutationRate: </span><span class="mf">0.1</span>
+      <span class="nv">survivalRate: </span><span class="mf">0.33</span>
+      <span class="nv">useWorkers: </span><span class="kc">false</span>
+      <span class="nv">logging: </span><span class="kc">false</span>
+      
+    <span class="nv">constant = </span><span class="nf">(key, value) -&gt;</span>
+      <span class="nb">Object</span><span class="p">.</span><span class="nx">defineProperty</span> <span class="k">this</span><span class="p">,</span> <span class="nx">key</span><span class="p">,</span>
+        <span class="nv">get: </span><span class="o">-&gt;</span> <span class="nx">value</span>
+        <span class="nv">set: </span><span class="o">-&gt;</span> <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Cannot set value of constant!&#39;</span>
+        
+    <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;POPULATION_SIZE&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">populationSize</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">populationSize</span>
+    <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;MUTATION_RATE&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">mutationRate</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">mutationRate</span>
+    <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;SURVIVAL_RATE&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">survivalRate</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">survivalRate</span>
+    <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;USE_WORKERS&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">useWorkers</span>
+    <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;LOGGING&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">logging</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">logging</span>
+    
+    <span class="nx">_checkOptions</span> <span class="nx">_options</span>
+  
+  <span class="nv">_checkOptions = </span><span class="nf">(options) -&gt;</span>
     <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">populationSize</span> <span class="o">&gt;</span> <span class="mi">0</span>
-      <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span> <span class="s">&#39;Options Warning: Population size must be greater than 0. Setting to 32.&#39;</span>
+      <span class="k">if</span> <span class="nx">options</span><span class="p">.</span><span class="nx">logging</span><span class="o">?</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span> <span class="s">&#39;Genie - Options Warning: Population size must be greater than 0.&#39;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&#39;Genie - Setting population size to default value of 32.&#39;</span>
       <span class="nv">options.populationSize = </span><span class="mi">32</span>
-    <span class="nx">options</span><span class="p">.</span><span class="nx">mutationRate</span> <span class="o">?=</span> <span class="mf">0.05</span>
-    <span class="nx">unless</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">mutationRate</span> <span class="o">&lt;=</span> <span class="mi">1</span>
-      <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span> <span class="s">&#39;Options Warning: Mutation Rate must be a probability from 0 to 1. Setting to 0.05.&#39;</span>
-      <span class="nv">options.mutationRate = </span><span class="mf">0.05</span>
-    <span class="nx">options</span><span class="p">.</span><span class="nx">surivalRate</span> <span class="o">?=</span> <span class="mf">0.33</span>
-    <span class="nx">unless</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">surivalRate</span> <span class="o">&lt;=</span> <span class="mi">1</span>
-      <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span> <span class="s">&#39;Options Warning: Survival Rate must be a probability from 0 to 1. Setting to 0.33.&#39;</span>
-      <span class="nv">options.surivalRate = </span><span class="mf">0.33</span>
-    <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">numberOfGenes</span><span class="o">?</span> <span class="o">and</span> <span class="nx">options</span><span class="p">.</span><span class="nx">numberOfGenes</span> <span class="o">&gt;</span> <span class="mi">0</span>
-      <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Options Error: The number of genes for each Chromosome must be greater than 0.&#39;</span>
-    <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">evaluateFitness</span>
-      <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Options Error: The fitness evalutation function for each Chromosome must be defined.&#39;</span>
 
-  <span class="nv">run: </span><span class="o">-&gt;</span>
-    <span class="nx">getFitness</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
+    <span class="nx">unless</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">mutationRate</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+      <span class="k">if</span> <span class="nx">options</span><span class="p">.</span><span class="nx">logging</span><span class="o">?</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span> <span class="s">&#39;Genie - Options Warning: Mutation rate must be a probability from 0 to 1&#39;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&#39;Genie - Setting mutation rate to default value of 0.1.&#39;</span>
+      <span class="nv">options.mutationRate = </span><span class="mf">0.1</span>
+
+    <span class="nx">unless</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">survivalRate</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+      <span class="k">if</span> <span class="nx">options</span><span class="p">.</span><span class="nx">logging</span><span class="o">?</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">warn</span> <span class="s">&#39;Genie - Options Warning: Survival rate must be a probability from 0 to 1.&#39;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&#39;Genie - Setting survival rate to default value of 0.33.&#39;</span>
+      <span class="nv">options.surivalRate = </span><span class="mf">0.33</span>
+
+    <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">numberOfGenes</span><span class="o">?</span> <span class="o">and</span> <span class="nx">options</span><span class="p">.</span><span class="nx">numberOfGenes</span> <span class="o">&gt;</span> <span class="mi">0</span>
+      <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Genie - Options Error: The number of genes for each Chromosome must be greater than 0.&#39;</span>
+
+    <span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">?=</span> <span class="kc">false</span>
+    <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">evaluateFitness</span><span class="o">?</span> 
+      <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span>
+        <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Genie - Options Error: The fitness evalutation function for each Chromosome must be defined.&#39;</span>
+
+    <span class="k">if</span> <span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">isnt</span> <span class="kc">false</span> <span class="o">and</span> <span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">&gt;</span> <span class="mi">0</span>
+      <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">workerMessageHandler</span><span class="o">?</span>
+        <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Genie - Options Error: The worker message handler function must be defined to use WebWorkers.&#39;</span>
+      <span class="nx">unless</span> <span class="nx">options</span><span class="p">.</span><span class="nx">workerScriptPath</span><span class="o">?</span>
+        <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Genie - Options Error: the worker script path must be defined to use WebWorkers.&#39;</span>
+
+    <span class="nx">options</span>
+
+  <span class="nv">_init = </span><span class="nf">(options, @_ = {}) -&gt;</span>
+    <span class="vi">@_.options = </span><span class="nx">checkOptions</span> <span class="nx">options</span>
+    <span class="vi">@_.population = </span><span class="p">(</span><span class="nx">Chromosome</span><span class="p">.</span><span class="nx">Random</span><span class="p">(</span><span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">numberOfGenes</span><span class="p">)</span> <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">populationSize</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">isnt</span> <span class="kc">false</span> <span class="o">and</span> <span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">&gt;</span> <span class="mi">0</span>
+      <span class="nv">workers = </span><span class="p">(</span><span class="kc">null</span> <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span><span class="p">])</span>
+
+    <span class="vi">@bestFit = </span><span class="nv">fit: </span><span class="mi">0</span>
+    <span class="vi">@currentChromosomeIndex = </span><span class="mi">0</span>
+    <span class="vi">@generation = </span><span class="mi">0</span>
+
+  <span class="nv">_run = </span><span class="o">-&gt;</span>
+    <span class="nx">@generation</span><span class="o">++</span>
+    <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">logging</span>
+      <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&quot;Genie - Starting generation </span><span class="si">#{</span><span class="nx">@generation</span><span class="si">}</span><span class="s">.&quot;</span>
+    <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">&gt;</span> <span class="mi">0</span>
+      <span class="nx">getParallelFitness</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
+    <span class="k">else</span>
+      <span class="nx">getFitness</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
+      
+  <span class="nv">_reportFitness = </span><span class="nf">(fitness) -&gt;</span>
+    <span class="vi">@_.currentChromosome.fit = </span><span class="nx">fitness</span>
+    <span class="vi">@_.currentChromosome.running = </span><span class="kc">false</span>
+    <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">&gt;</span> <span class="mi">0</span>
+      <span class="nx">getParallelFitness</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
+    <span class="k">else</span>
+      <span class="nx">getFitness</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
+
+  <span class="nv">getNextChromosome = </span><span class="nf">(population) -&gt;</span>
+    <span class="k">for</span> <span class="nx">c</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">population</span><span class="p">.</span><span class="nx">length</span><span class="p">]</span>
+      <span class="nv">chromosome = </span><span class="nx">population</span><span class="p">[</span><span class="nx">c</span><span class="p">]</span>
+      <span class="nx">unless</span> <span class="p">(</span><span class="nx">chromosome</span><span class="p">.</span><span class="nx">fit</span><span class="o">?</span> <span class="o">or</span> <span class="nx">chromosome</span><span class="p">.</span><span class="nx">running</span><span class="p">)</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span> <span class="nx">c</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="nv">chromosome.running = </span><span class="kc">true</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nx">chromosome</span><span class="p">,</span> <span class="nx">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="p">[]</span>
 
   <span class="nv">getFitness = </span><span class="o">-&gt;</span>
-    <span class="vi">@_.currentChromosome = </span><span class="nx">getNextChromosome</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
-    <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span><span class="o">?</span> 
-      <span class="nx">@_</span><span class="p">.</span><span class="nx">evaluateFitness</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span>
+    <span class="p">[</span><span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span><span class="p">,</span> <span class="nx">@currentChromosomeIndex</span><span class="p">]</span> <span class="o">=</span> <span class="nx">getNextChromosome</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span>
+    <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span><span class="o">?</span>
+      <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">logging</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&quot;Genie - Evaluating fitness of chromosome </span><span class="si">#{</span><span class="nx">@currentChromosomeIndex</span><span class="si">}</span><span class="s">.&quot;</span>
+      <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">evaluateFitness</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span>
     <span class="k">else</span>
-      <span class="nx">complete</span><span class="p">()</span>
+      <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">logging</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&quot;Genie - Generation </span><span class="si">#{</span><span class="nx">@generation</span><span class="si">}</span><span class="s"> complete.&quot;</span>
+      <span class="nx">complete</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
       
-  <span class="nv">getNextChromosome = </span><span class="o">-&gt;</span>
-    <span class="k">for</span> <span class="nx">chromosome</span> <span class="k">in</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span>
-      <span class="nx">unless</span> <span class="nx">chromosome</span><span class="p">.</span><span class="nx">fit</span><span class="o">?</span>
-        <span class="k">return</span> <span class="nx">chromosome</span>
+  <span class="nv">getParallelFitness = </span><span class="o">-&gt;</span>
+    <span class="k">while</span> <span class="nx">workers</span><span class="p">.</span><span class="nx">length</span> <span class="o">&lt;</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">useWorkers</span> <span class="o">or</span> <span class="nx">workers</span><span class="p">.</span><span class="nx">indexOf</span><span class="p">(</span><span class="kc">null</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+      <span class="p">[</span><span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span><span class="p">,</span> <span class="nx">@currentChromosomeIndex</span><span class="p">]</span> <span class="o">=</span> <span class="nx">getNextChromosome</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span> 
+      <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span><span class="o">?</span>
+        <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">logging</span>
+          <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&quot;Genie - Evaluating fitness of chromosome </span><span class="si">#{</span><span class="nx">@currentChromosomeIndex</span><span class="si">}</span><span class="s">.&quot;</span>
+        <span class="nv">worker = </span><span class="k">new</span> <span class="nx">Worker</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">workerScriptPath</span>
+        <span class="nv">closeWorker = </span><span class="nf">(e) -&gt;</span>
+          <span class="k">if</span> <span class="nx">e</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">func</span> <span class="o">is</span> <span class="s">&#39;complete&#39;</span>
+            <span class="k">this</span><span class="p">.</span><span class="nx">terminate</span><span class="p">()</span>
+            <span class="nx">workers</span><span class="p">[</span><span class="nx">workers</span><span class="p">.</span><span class="nx">indexOf</span><span class="p">(</span><span class="k">this</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">null</span>
+        <span class="nx">worker</span><span class="p">.</span><span class="nx">addEventListener</span> <span class="s">&#39;message&#39;</span><span class="p">,</span> <span class="nx">closeWorker</span>
+        <span class="nx">worker</span><span class="p">.</span><span class="nx">addEventListener</span> <span class="s">&#39;message&#39;</span><span class="p">,</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">workerMessageHandler</span>
+        <span class="nx">workers</span><span class="p">[</span><span class="nx">workers</span><span class="p">.</span><span class="nx">indexOf</span><span class="p">(</span><span class="kc">null</span><span class="p">)]</span> <span class="o">=</span> <span class="nx">worker</span>
+        <span class="nx">worker</span><span class="p">.</span><span class="nx">postMessage</span> <span class="nv">func: </span><span class="s">&#39;evaluateFitness&#39;</span><span class="p">,</span> <span class="nv">chromosome: </span><span class="nx">@_</span><span class="p">.</span><span class="nx">currentChromosome</span><span class="p">,</span> <span class="nv">chromosomeIndex: </span><span class="nx">@currentChromosomeIndex</span><span class="p">,</span> <span class="nv">workerIndex: </span><span class="nx">workers</span><span class="p">.</span><span class="nx">indexOf</span><span class="p">(</span><span class="nx">worker</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">logging</span>
+          <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&quot;Genie - Generation </span><span class="si">#{</span><span class="nx">@generation</span><span class="si">}</span><span class="s"> complete.&quot;</span>
+        <span class="nx">complete</span><span class="p">.</span><span class="nx">call</span> <span class="k">this</span>
 
-  <span class="nv">reportFitness: </span><span class="nf">(fitness) -&gt;</span>
-    <span class="vi">@_.currentChromosome.fit = </span><span class="nx">fitness</span>
-    <span class="nx">getFitness</span><span class="p">()</span>
-  
-  <span class="nv">complete: </span><span class="o">-&gt;</span>
+  <span class="nv">complete = </span><span class="o">-&gt;</span>
     <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">sort</span> <span class="nf">(a, b) -&gt;</span> <span class="nx">b</span><span class="p">.</span><span class="nx">fit</span> <span class="o">-</span> <span class="nx">a</span><span class="p">.</span><span class="nx">fit</span>
-    <span class="vi">@_.population = </span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nb">Math</span><span class="p">.</span><span class="nx">floor</span><span class="p">(</span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">length</span> <span class="o">*</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">survivalRate</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">fit</span> <span class="o">&gt;</span> <span class="nx">@bestFit</span><span class="p">.</span><span class="nx">fit</span>
+      <span class="vi">@bestFit = </span><span class="p">{</span> <span class="nv">genes: </span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">genes</span><span class="p">,</span> <span class="nv">fit: </span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">fit</span> <span class="p">}</span>
+      <span class="k">if</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">logging</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="s">&quot;Genie - New best fitting chomosome found with fit = </span><span class="si">#{</span><span class="nx">@bestFit</span><span class="p">.</span><span class="nx">fit</span><span class="si">}</span><span class="s">&quot;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span> <span class="nx">@bestFit</span>
+
+    <span class="vi">@_.population = </span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nb">Math</span><span class="p">.</span><span class="nx">floor</span><span class="p">(</span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">length</span> <span class="o">*</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">survivalRate</span><span class="p">)]</span>
 
     <span class="nv">populationWeights = </span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="nb">Math</span><span class="p">.</span><span class="nx">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nx">n</span><span class="p">)</span> <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">..</span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">length</span><span class="p">])</span>
 
-    <span class="nv">getParent = </span><span class="nf">(bag) -&gt;</span>
+    <span class="nv">getIndex = </span><span class="nf">(bag) -&gt;</span>
       <span class="nv">random = </span><span class="nb">Math</span><span class="p">.</span><span class="nx">random</span><span class="p">()</span>
-      <span class="nv">selected = </span><span class="mi">0</span>
-      <span class="k">for</span> <span class="nx">w</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">populationWeights</span><span class="p">.</span><span class="nx">length</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nx">random</span> <span class="o">&gt;</span> <span class="nx">populationWeights</span><span class="p">[</span><span class="nx">w</span><span class="p">]</span>
-          <span class="nv">selected = </span><span class="nx">w</span>
-      <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="nx">bag</span><span class="p">.</span><span class="nx">splice</span><span class="p">(</span><span class="nx">selected</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span>
+      <span class="nv">selected = </span><span class="kc">null</span>
+      <span class="k">for</span> <span class="nx">w</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">bag</span><span class="p">.</span><span class="nx">length</span><span class="p">]</span>
+        <span class="nx">unless</span> <span class="nx">selected</span><span class="o">?</span>
+          <span class="k">if</span> <span class="nx">random</span> <span class="o">&gt;</span> <span class="nx">populationWeights</span><span class="p">[</span><span class="nx">w</span><span class="p">]</span>
+            <span class="nv">selected = </span><span class="nx">w</span>
+      <span class="nx">bag</span><span class="p">.</span><span class="nx">splice</span><span class="p">(</span><span class="nx">selected</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="k">while</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">length</span> <span class="o">&lt;</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">populationSize</span>
-      <span class="nv">bag = </span><span class="p">(</span><span class="nx">n</span> <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">@_</span><span class="p">.</span><span class="nx">populations</span><span class="p">.</span><span class="nx">length</span><span class="p">])</span>
-      <span class="nx">@_</span><span class="p">.</span><span class="nx">popolation</span><span class="p">.</span><span class="nx">push</span> <span class="nx">Chromosome</span><span class="p">.</span><span class="nx">Breed</span><span class="p">(</span><span class="nx">getParent</span><span class="p">(</span><span class="nx">bag</span><span class="p">),</span> <span class="nx">getParent</span><span class="p">(</span><span class="nx">bag</span><span class="p">),</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">mutationRate</span><span class="p">)</span>
+    <span class="k">while</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">length</span> <span class="o">&lt;</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">populationSize</span>
+      <span class="nv">bag = </span><span class="p">(</span><span class="nx">n</span> <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">length</span><span class="p">])</span>
+      <span class="nv">parentOne = </span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="nx">getIndex</span><span class="p">(</span><span class="nx">bag</span><span class="p">)]</span>
+      <span class="nv">parentTwo = </span><span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">[</span><span class="nx">getIndex</span><span class="p">(</span><span class="nx">bag</span><span class="p">)]</span>
+      <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span><span class="p">.</span><span class="nx">push</span> <span class="nx">Chromosome</span><span class="p">.</span><span class="nx">Breed</span><span class="p">(</span><span class="nx">parentOne</span><span class="p">,</span> <span class="nx">parentTwo</span><span class="p">,</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">options</span><span class="p">.</span><span class="nx">mutationRate</span><span class="p">)</span>
 
-    <span class="nx">@run</span><span class="p">()</span>
+    <span class="nv">chromosome.fit = </span><span class="kc">null</span> <span class="k">for</span> <span class="nx">chromosome</span> <span class="k">in</span> <span class="nx">@_</span><span class="p">.</span><span class="nx">population</span></pre></div>             </td>           </tr>                               <tr id="section-2">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-2">&#182;</a>               </div>               <p>@run()</p>             </td>             <td class="code">               <div class="highlight"><pre>  
+  <span class="nv">genie =</span>
+    <span class="nv">init: </span><span class="nx">_init</span>
+    <span class="nv">run: </span><span class="nx">_run</span>
+    <span class="nv">reportFitness: </span><span class="nx">_reportFitness</span>
 
 <span class="nv">root = </span><span class="nx">exports</span> <span class="o">?</span> <span class="k">this</span>
-<span class="nv">root.Genie = </span><span class="nx">Genie</span>
+<span class="nv">root.genie = </span><span class="nx">genie</span>
 
 </pre></div>             </td>           </tr>                </tbody>     </table>   </div> </body> </html> 
